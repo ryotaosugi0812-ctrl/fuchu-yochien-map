@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>府中市 幼稚園・保育所 認証認可マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;background:#f1f5f9;color:#1e293b;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── ヘッダー ── */
+header{background:#1d4ed8;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+header h1{font-size:1.1rem;font-weight:700;flex:1}
+#hdr-count{font-size:0.76rem;opacity:.8;white-space:nowrap}
+
+/* ── カテゴリバー ── */
+.cat-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:7px 12px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;flex-shrink:0}
+.search-wrap{position:relative;flex:0 0 190px}
+.search-wrap input{width:100%;padding:6px 8px 6px 28px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:0.82rem;outline:none}
+.search-wrap input:focus{border-color:#1d4ed8}
+.search-wrap .sico{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:.85rem;color:#94a3b8}
+.chip{padding:4px 10px;border:1.5px solid transparent;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s;white-space:nowrap;background:#fff}
+.chip .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.chip.off{opacity:.28}
+.chip-all{border-color:#475569;color:#475569}
+.chip-all.on{background:#475569;color:#fff}
+.loc-btns{margin-left:auto;display:flex;gap:5px}
+.btn{padding:5px 11px;border:1.5px solid #1d4ed8;border-radius:6px;font-size:.78rem;font-weight:600;color:#1d4ed8;background:#fff;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#dbeafe}
+.btn.loading{opacity:.6;pointer-events:none}
+.btn-pin{border-color:#64748b;color:#475569}
+.btn-pin:hover{background:#f1f5f9}
+.btn-pin.active{background:#fef3c7;border-color:#d97706;color:#92400e}
+.spinner{width:11px;height:11px;border:2px solid #93c5fd;border-top-color:#1d4ed8;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.btn.loading .spinner{display:block}
+.btn.loading .lbl{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 距離バー ── */
+.dist-bar{background:#eff6ff;border-bottom:2px solid #bfdbfe;padding:6px 12px;display:none;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.dist-bar.on{display:flex}
+.dist-label{font-size:.8rem;font-weight:600;color:#1d4ed8;white-space:nowrap}
+.dpill{padding:4px 11px;border:1.5px solid #93c5fd;border-radius:20px;font-size:.76rem;font-weight:600;cursor:pointer;color:#1d4ed8;background:#fff;transition:all .15s;white-space:nowrap}
+.dpill.on{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.dpill:hover:not(.on){background:#dbeafe}
+#loc-acc{font-size:.73rem;color:#64748b}
+.btn-clear{margin-left:auto;padding:3px 9px;border:1.5px solid #fca5a5;border-radius:6px;font-size:.73rem;color:#dc2626;background:#fff;cursor:pointer}
+.btn-clear:hover{background:#fee2e2}
+
+/* ── メインレイアウト ── */
+.layout{display:flex;flex:1;overflow:hidden;position:relative}
+
+/* ── 地図 ── */
+#map{flex:1}
+#map-hint{display:none;position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:1000;background:#1d4ed8;color:#fff;padding:7px 16px;border-radius:20px;font-size:.8rem;font-weight:600;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+#map-hint.on{display:block}
+#map.pin-mode,.pin-mode .leaflet-container{cursor:crosshair!important}
+
+/* ── サイドパネル ── */
+.panel{width:360px;flex:0 0 360px;background:#fff;border-left:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden}
+.panel-hd{padding:8px 12px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.btn-back{display:none;align-items:center;gap:3px;border:none;background:none;color:#1d4ed8;font-size:.8rem;font-weight:600;cursor:pointer;padding:0}
+.btn-back:hover{text-decoration:underline}
+#panel-count{font-size:.8rem;color:#64748b}
+#panel-sort{font-size:.72rem;color:#94a3b8;margin-left:auto}
+
+/* ── 一覧 ── */
+#list-view{overflow-y:auto;flex:1}
+.item{padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .1s}
+.item:hover,.item.sel{background:#eff6ff}
+.item-row1{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:2px}
+.item-name{font-weight:600;font-size:.87rem;line-height:1.3}
+.dist-badge{font-size:.74rem;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:1px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.68rem;font-weight:700;margin-bottom:3px}
+.item-addr{font-size:.74rem;color:#64748b;margin-bottom:6px}
+
+/* ── 募集人数ボックス ── */
+.cap-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 9px}
+.cap-box-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.cap-box-title{font-size:.67rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}
+.cap-total{font-size:.85rem;font-weight:700}
+.cap-total.c-cap{color:#334155}
+.cap-total.c-zero{color:#94a3b8}
+.cap-total.c-pos{color:#16a34a}
+/* 年齢グリッド */
+.age-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+.age-cell{background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:3px 0;text-align:center}
+.age-cell .al{font-size:.6rem;color:#94a3b8;display:block;line-height:1.2}
+.age-cell .av{font-size:.82rem;font-weight:700;display:block;line-height:1.3;color:#334155}
+.age-cell.vp .av{color:#16a34a}
+.age-cell.vz .av{color:#cbd5e1;font-weight:400}
+/* リンク */
+.cap-link{display:block;margin-top:6px;font-size:.74rem;color:#2563eb;text-decoration:none}
+.cap-link:hover{text-decoration:underline}
+
+/* badge colors */
+.by{background:#dcfce7;color:#15803d}
+.bs{background:#dbeafe;color:#1d4ed8}
+.bp{background:#ede9fe;color:#6d28d9}
+.bn{background:#fef3c7;color:#b45309}
+.bk{background:#fce7f3;color:#be185d}
+.bc{background:#cffafe;color:#0e7490}
+
+/* ── 詳細ビュー ── */
+#detail-view{display:none;overflow-y:auto;flex:1;padding:14px 13px}
+.det-name{font-size:1rem;font-weight:700;margin:7px 0 5px;line-height:1.4}
+.det-row{display:flex;gap:7px;align-items:flex-start;font-size:.82rem;color:#475569;margin-bottom:5px}
+.det-dist{display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;font-size:.79rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:9px}
+.det-div{border:none;border-top:1px solid #e2e8f0;margin:11px 0}
+.det-sec-title{font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}
+.det-total{font-size:.9rem;font-weight:700;margin-bottom:7px}
+.det-link{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid #bfdbfe;border-radius:6px;color:#1d4ed8;font-size:.8rem;text-decoration:none;margin-top:7px}
+.det-link:hover{background:#eff6ff}
+.det-link2{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:6px;color:#475569;font-size:.8rem;text-decoration:none;margin-top:5px}
+.det-link2:hover{background:#f8fafc}
+
+/* ── 現在地マーカー pulse ── */
+.loc-dot{width:20px;height:20px;position:relative}
+.loc-dot::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:13px;height:13px;background:#2563eb;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(37,99,235,.3);z-index:1}
+.loc-dot::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;background:rgba(37,99,235,.1);border:1.5px solid rgba(37,99,235,.3);border-radius:50%;animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{transform:translate(-50%,-50%) scale(.3);opacity:1}100%{transform:translate(-50%,-50%) scale(1.8);opacity:0}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>府中市 幼稚園・保育所 認証認可マップ</h1>
+  <span id="hdr-count">読み込み中…</span>
+</header>
+
+<div class="cat-bar">
+  <div class="search-wrap">
+    <span class="sico">🔍</span>
+    <input id="search" type="text" placeholder="施設名・住所で検索" oninput="filter()"/>
+  </div>
+  <button class="chip chip-all on" id="btn-all" onclick="toggleAll()">すべて</button>
+  <button class="chip on" id="btn-認可幼稚園"        style="border-color:#16a34a;color:#16a34a"  onclick="toggleCat('認可幼稚園')"><span class="dot" style="background:#16a34a"></span>認可幼稚園</button>
+  <button class="chip on" id="btn-認可保育所（市立）"  style="border-color:#2563eb;color:#2563eb"  onclick="toggleCat('認可保育所（市立）')"><span class="dot" style="background:#2563eb"></span>市立保育所</button>
+  <button class="chip on" id="btn-認可保育所（私立）"  style="border-color:#7c3aed;color:#7c3aed"  onclick="toggleCat('認可保育所（私立）')"><span class="dot" style="background:#7c3aed"></span>私立保育園</button>
+  <button class="chip on" id="btn-認証保育所（東京都）" style="border-color:#d97706;color:#d97706" onclick="toggleCat('認証保育所（東京都）')"><span class="dot" style="background:#d97706"></span>認証保育所</button>
+  <button class="chip on" id="btn-企業主導型"        style="border-color:#db2777;color:#db2777"  onclick="toggleCat('企業主導型')"><span class="dot" style="background:#db2777"></span>企業主導型</button>
+  <button class="chip on" id="btn-地域型保育（認可）"  style="border-color:#0891b2;color:#0891b2"  onclick="toggleCat('地域型保育（認可）')"><span class="dot" style="background:#0891b2"></span>地域型</button>
+  <div class="loc-btns">
+    <button class="btn" id="btn-gps" onclick="getGPS()">
+      <div class="spinner"></div><span class="lbl">📍 現在地を取得</span>
+    </button>
+    <button class="btn btn-pin" id="btn-pin" onclick="togglePinMode()" title="地図をクリックして現在地を設定">🗺 地図で設定</button>
+  </div>
+</div>
+
+<div class="dist-bar" id="dist-bar">
+  <span class="dist-label">📍 現在地から</span>
+  <button class="dpill on" data-m="0"    onclick="setDist(this)">すべて</button>
+  <button class="dpill"    data-m="500"  onclick="setDist(this)">500m</button>
+  <button class="dpill"    data-m="1000" onclick="setDist(this)">1km</button>
+  <button class="dpill"    data-m="2000" onclick="setDist(this)">2km</button>
+  <button class="dpill"    data-m="3000" onclick="setDist(this)">3km</button>
+  <button class="dpill"    data-m="5000" onclick="setDist(this)">5km</button>
+  <span id="loc-acc"></span>
+  <button class="btn-clear" onclick="clearLoc()">✕ 解除</button>
+</div>
+
+<div class="layout">
+  <div id="map"></div>
+  <div id="map-hint">📍 現在地にしたい場所をクリックしてください</div>
+  <div class="panel">
+    <div class="panel-hd">
+      <button class="btn-back" id="btn-back" onclick="showList()">← 一覧へ</button>
+      <span id="panel-count">—</span>
+      <span id="panel-sort"></span>
+    </div>
+    <div id="list-view"></div>
+    <div id="detail-view"></div>
+  </div>
+</div>
+
+<script>
+/* ===== 定数 ===== */
+const CATS = {
+  "認可幼稚園":        {color:"#16a34a", badge:"by", label:"認可幼稚園"},
+  "認可保育所（市立）": {color:"#2563eb", badge:"bs", label:"認可保育所（市立）"},
+  "認可保育所（私立）": {color:"#7c3aed", badge:"bp", label:"認可保育所（私立）"},
+  "認証保育所（東京都）":{color:"#d97706", badge:"bn", label:"認証保育所"},
+  "企業主導型":        {color:"#db2777", badge:"bk", label:"企業主導型"},
+  "地域型保育（認可）": {color:"#0891b2", badge:"bc", label:"地域型保育"},
+};
+const AGES = ["0歳","1歳","2歳","3歳","4歳","5歳"];
+const VAC_URL = "https://www.city.fuchu.tokyo.jp/kosodate/shussan/hoikujo/ninsyo.html";
+const CAP_URL = "https://www.city.fuchu.tokyo.jp/kosodate/shussan/hoikujo/ukeireyotei.html";
+
+/* ===== 状態 ===== */
+let ALL=[], MRK=[];
+let activeCats = new Set(Object.keys(CATS));
+let userLoc=null, distLimit=0;
+let locMarker=null, rangeCircle=null, pinHandler=null;
+
+/* ===== 地図初期化 ===== */
+const map = L.map("map").setView([35.671,139.480],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19
+}).addTo(map);
+
+const locIcon = L.divIcon({html:'<div class="loc-dot"></div>',className:"",iconSize:[20,20],iconAnchor:[10,10]});
+
+function makeIcon(color){
+  return L.divIcon({
+    className:"",iconSize:[22,30],iconAnchor:[11,30],popupAnchor:[0,-30],
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30">
+      <ellipse cx="11" cy="28" rx="5" ry="1.8" fill="rgba(0,0,0,.18)"/>
+      <path d="M11 0C6.9 0 3.5 3.4 3.5 7.5c0 5.1 7.5 20.5 7.5 20.5s7.5-15.4 7.5-20.5C18.5 3.4 15.1 0 11 0z"
+            fill="${color}" stroke="#fff" stroke-width="1.4"/>
+      <circle cx="11" cy="7.5" r="3.5" fill="#fff" opacity=".9"/>
+    </svg>`
+  });
+}
+
+/* ===== ユーティリティ ===== */
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function dist(a,b){
+  const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function fmtD(m){return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`}
+
+/* ===== 募集人数ボックス HTML（一覧用） ===== */
+function capBox(f){
+  /* 認可保育所・地域型：PDFからの募集人数 */
+  if(f["募集人数"]){
+    const rec=f["募集人数"];
+    const tot=rec["計"]??AGES.reduce((s,a)=>s+(rec[a]||0),0);
+    const totCls=tot>0?"c-pos":"c-zero";
+    const cells=AGES.map(a=>{
+      const v=rec[a]??0;
+      return `<div class="age-cell ${v>0?'vp':'vz'}"><span class="al">${a}</span><span class="av">${v}</span></div>`;
+    }).join("");
+    return `<div class="cap-box">
+      <div class="cap-box-hd">
+        <span class="cap-box-title">📋 募集人数（最新PDF）</span>
+        <span class="cap-total ${totCls}">${tot>0?`合計 ${tot}名`:"現在空きなし"}</span>
+      </div>
+      <div class="age-grid">${cells}</div>
+    </div>`;
+  }
+  /* 認証保育所：空き人数 */
+  if(f["空き人数"]){
+    const vac=f["空き人数"];
+    const tot=f["空き合計"]??Object.values(vac).reduce((s,v)=>s+(v||0),0);
+    const totCls=tot>0?"c-pos":"c-zero";
+    const cells=AGES.map(a=>{
+      const v=vac[a];
+      if(v==null) return `<div class="age-cell" style="visibility:hidden"><span class="al"> </span><span class="av"> </span></div>`;
+      return `<div class="age-cell ${v>0?'vp':'vz'}"><span class="al">${a}</span><span class="av">${v}</span></div>`;
+    }).join("");
+    return `<div class="cap-box">
+      <div class="cap-box-hd">
+        <span class="cap-box-title">📋 空き人数（最新）</span>
+        <span class="cap-total ${totCls}">${tot>0?`合計 ${tot}名`:"現在空きなし"}</span>
+      </div>
+      <div class="age-grid">${cells}</div>
+    </div>`;
+  }
+  /* その他 */
+  const url=f["空き情報URL"];
+  if(url) return `<div class="cap-box">
+    <span class="cap-box-title">募集・空き情報</span>
+    <a class="cap-link" href="${esc(url)}" target="_blank" onclick="event.stopPropagation()">📄 府中市の募集状況を確認 ↗</a>
+  </div>`;
+  return "";
+}
+
+/* ===== 一覧を描画 ===== */
+function renderList(visible){
+  document.getElementById("panel-count").textContent=`${visible.length} 件`;
+  document.getElementById("hdr-count").textContent=`全${ALL.length}施設 / 表示${visible.length}件`;
+  document.getElementById("panel-sort").textContent=userLoc?"距離順":"";
+
+  document.getElementById("list-view").innerHTML = visible.map(({f,idx,dm})=>{
+    const cat=CATS[f.category]||{badge:"",label:f.category};
+    const db=dm!=null?`<span class="dist-badge">${fmtD(dm)}</span>`:"";
+    return `<div class="item" id="it${idx}" onclick="showDetail(${idx})">
+      <span class="badge ${cat.badge}">${esc(cat.label)}</span>
+      <div class="item-row1">
+        <div class="item-name">${esc(f.name)}</div>${db}
+      </div>
+      <div class="item-addr">${esc(f.address||"—")}</div>
+      ${capBox(f)}
+    </div>`;
+  }).join("");
+}
+
+/* ===== 詳細ビュー ===== */
+function detailBlock(f,dm){
+  const cat=CATS[f.category]||{badge:"",label:f.category};
+  const sub=f.subtype?`<span style="font-size:.74rem;color:#64748b"> (${esc(f.subtype)})</span>`:"";
+  const dbadge=dm!=null?`<div class="det-dist">📍 現在地から ${fmtD(dm)}</div>`:"";
+
+  let cap="";
+  if(f["募集人数"]){
+    const rec=f["募集人数"];
+    const tot=rec["計"]??AGES.reduce((s,a)=>s+(rec[a]||0),0);
+    const cells=AGES.map(a=>{
+      const v=rec[a]??0;
+      return `<div class="age-cell ${v>0?'vp':'vz'}"><span class="al">${a}</span><span class="av">${v}</span></div>`;
+    }).join("");
+    cap=`<hr class="det-div">
+      <div class="det-sec-title">📋 募集人数（最新PDF）</div>
+      <div class="det-total" style="color:${tot>0?'#16a34a':'#94a3b8'}">${tot>0?`合計 ${tot} 名`:"現在空きなし"}</div>
+      <div class="age-grid" style="margin-top:4px">${cells}</div>
+      <a class="det-link" href="${esc(CAP_URL)}" target="_blank">📄 最新の受入予定人数PDFを確認</a>`;
+    if(f["定員合計"]!=null){
+      const bd=f["年齢別定員"]||{};
+      const c2=AGES.map(a=>{
+        const v=bd[a];
+        return v!=null
+          ?`<div class="age-cell"><span class="al">${a}</span><span class="av">${v}</span></div>`
+          :`<div class="age-cell" style="visibility:hidden"><span class="al"> </span><span class="av"> </span></div>`;
+      }).join("");
+      cap+=`<hr class="det-div">
+        <div class="det-sec-title">定員（令和7年度）</div>
+        <div class="det-total" style="color:#334155">合計 ${f["定員合計"]} 名</div>
+        <div class="age-grid" style="margin-top:4px">${c2}</div>`;
+    }
+  } else if(f["空き人数"]){
+    const vac=f["空き人数"];
+    const tot=f["空き合計"]??Object.values(vac).reduce((s,v)=>s+(v||0),0);
+    const cells=AGES.map(a=>{
+      const v=vac[a];
+      if(v==null) return `<div class="age-cell" style="visibility:hidden"><span class="al"> </span><span class="av"> </span></div>`;
+      return `<div class="age-cell ${v>0?'vp':'vz'}"><span class="al">${a}</span><span class="av">${v}</span></div>`;
+    }).join("");
+    cap=`<hr class="det-div">
+      <div class="det-sec-title">📋 空き人数（最新）</div>
+      <div class="det-total" style="color:${tot>0?'#16a34a':'#94a3b8'}">${tot>0?`合計 ${tot} 名`:"現在空きなし"}</div>
+      <div class="age-grid" style="margin-top:4px">${cells}</div>
+      <a class="det-link" href="${esc(VAC_URL)}" target="_blank">📋 最新の空き情報を確認</a>`;
+  } else if(f["定員合計"]!=null){
+    const bd=f["年齢別定員"]||{};
+    const cells=AGES.map(a=>{
+      const v=bd[a];
+      return v!=null
+        ?`<div class="age-cell"><span class="al">${a}</span><span class="av">${v}</span></div>`
+        :`<div class="age-cell" style="visibility:hidden"><span class="al"> </span><span class="av"> </span></div>`;
+    }).join("");
+    cap=`<hr class="det-div">
+      <div class="det-sec-title">定員（令和7年度）</div>
+      <div class="det-total" style="color:#334155">合計 ${f["定員合計"]} 名</div>
+      <div class="age-grid" style="margin-top:4px">${cells}</div>
+      <a class="det-link" href="${esc(CAP_URL)}" target="_blank">📄 空き情報を確認</a>`;
+  } else if(f["空き情報URL"]){
+    cap=`<hr class="det-div">
+      <div class="det-sec-title">募集・空き情報</div>
+      <a class="det-link" href="${esc(f['空き情報URL'])}" target="_blank">📄 募集状況を確認</a>`;
+  }
+  return `<span class="badge ${cat.badge}">${esc(cat.label)}</span>${sub}
+    <div class="det-name">${esc(f.name)}</div>
+    ${dbadge}
+    <div class="det-row"><span>📍</span><span>${esc(f.address||"—")}</span></div>
+    <div class="det-row"><span>📞</span><span>${esc(f.phone||"—")}</span></div>
+    ${cap}
+    ${f.url?`<a class="det-link2" href="${esc(f.url)}" target="_blank">🏠 府中市公式ページ</a>`:""}`;
+}
+
+function showDetail(idx){
+  const entry=MRK[idx]; if(!entry) return;
+  const dm=userLoc?dist(userLoc,{lat:entry.f.lat,lng:entry.f.lng}):null;
+
+  document.getElementById("list-view").style.display="none";
+  const dv=document.getElementById("detail-view");
+  dv.style.display="block";
+  dv.innerHTML=detailBlock(entry.f,dm);
+
+  document.getElementById("btn-back").style.display="flex";
+  document.getElementById("panel-count").textContent="";
+  document.getElementById("panel-sort").textContent="";
+
+  document.querySelectorAll(".item").forEach(el=>el.classList.remove("sel"));
+  const el=document.getElementById(`it${idx}`);
+  if(el) el.classList.add("sel");
+
+  entry.marker.openPopup();
+  map.panTo(entry.marker.getLatLng(),{animate:true});
+}
+
+function showList(){
+  document.getElementById("list-view").style.display="";
+  document.getElementById("detail-view").style.display="none";
+  document.getElementById("btn-back").style.display="none";
+  map.closePopup();
+  filter();
+}
+
+/* ===== フィルタ ===== */
+function filter(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  const visible=[];
+  MRK.forEach((entry,idx)=>{
+    if(!entry) return;
+    const {marker,f,layer}=entry;
+    const dm=userLoc?dist(userLoc,{lat:f.lat,lng:f.lng}):null;
+    const ok=activeCats.has(f.category)
+      &&(!q||f.name.toLowerCase().includes(q)||(f.address||"").toLowerCase().includes(q))
+      &&(!userLoc||distLimit===0||dm<=distLimit);
+    if(ok) layer.addLayer(marker); else layer.removeLayer(marker);
+    if(ok) visible.push({f,idx,dm});
+  });
+  if(userLoc) visible.sort((a,b)=>(a.dm??Infinity)-(b.dm??Infinity));
+  else visible.sort((a,b)=>a.f.name.localeCompare(b.f.name,"ja"));
+
+  // 詳細表示中なら一覧更新だけ（表示切り替えはしない）
+  if(document.getElementById("detail-view").style.display!=="block") renderList(visible);
+  else { /* カウントだけ更新 */
+    document.getElementById("hdr-count").textContent=`全${ALL.length}施設 / 表示${visible.length}件`;
+  }
+}
+
+/* ===== カテゴリトグル ===== */
+function toggleCat(cat){
+  const btn=document.getElementById(`btn-${CSS.escape(cat)}`);
+  activeCats.has(cat)?(activeCats.delete(cat),btn.classList.add("off")):(activeCats.add(cat),btn.classList.remove("off"));
+  filter();
+}
+function toggleAll(){
+  const allOn=activeCats.size===Object.keys(CATS).length;
+  if(allOn){activeCats.clear();document.querySelectorAll(".chip:not(.chip-all)").forEach(b=>b.classList.add("off"));document.getElementById("btn-all").classList.remove("on")}
+  else{Object.keys(CATS).forEach(c=>activeCats.add(c));document.querySelectorAll(".chip:not(.chip-all)").forEach(b=>b.classList.remove("off"));document.getElementById("btn-all").classList.add("on")}
+  filter();
+}
+
+/* ===== 距離フィルタ ===== */
+function setDist(btn){
+  document.querySelectorAll(".dpill").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  distLimit=parseInt(btn.dataset.m,10);
+  if(rangeCircle){map.removeLayer(rangeCircle);rangeCircle=null}
+  if(distLimit>0&&userLoc){
+    rangeCircle=L.circle([userLoc.lat,userLoc.lng],{radius:distLimit,color:"#1d4ed8",fillColor:"#3b82f6",fillOpacity:.07,weight:1.5,dashArray:"6 4"}).addTo(map);
+    map.fitBounds(rangeCircle.getBounds(),{padding:[30,30]});
+  } else if(userLoc) map.setView([userLoc.lat,userLoc.lng],13);
+  filter();
+}
+
+/* ===== 現在地 ===== */
+function applyLoc(lat,lng,accLabel){
+  userLoc={lat,lng};
+  exitPin();
+  if(locMarker) map.removeLayer(locMarker);
+  locMarker=L.marker([lat,lng],{icon:locIcon,zIndexOffset:1000}).bindPopup("<b>現在地</b>").addTo(map);
+  document.getElementById("dist-bar").classList.add("on");
+  document.getElementById("loc-acc").textContent=accLabel;
+  document.getElementById("btn-gps").classList.remove("loading");
+  document.querySelector("#btn-gps .lbl").textContent="📍 現在地を更新";
+  map.setView([lat,lng],14,{animate:true});
+  filter();
+}
+
+function getGPS(){
+  if(!navigator.geolocation){enterPin();return}
+  const btn=document.getElementById("btn-gps");
+  btn.classList.add("loading");
+  navigator.geolocation.getCurrentPosition(
+    pos=>applyLoc(pos.coords.latitude,pos.coords.longitude,`GPS ±${Math.round(pos.coords.accuracy)}m`),
+    ()=>{btn.classList.remove("loading");enterPin("GPS取得できませんでした。地図をクリックして設定してください")},
+    {timeout:8000,maximumAge:30000,enableHighAccuracy:false}
+  );
+}
+
+function enterPin(msg){
+  document.getElementById("map-hint").textContent="📍 "+(msg||"現在地にしたい場所をクリックしてください");
+  document.getElementById("map-hint").classList.add("on");
+  document.getElementById("map").classList.add("pin-mode");
+  document.getElementById("btn-pin").classList.add("active");
+  if(pinHandler) map.off("click",pinHandler);
+  pinHandler=e=>applyLoc(e.latlng.lat,e.latlng.lng,"地図で設定");
+  map.on("click",pinHandler);
+}
+function exitPin(){
+  document.getElementById("map-hint").classList.remove("on");
+  document.getElementById("map").classList.remove("pin-mode");
+  document.getElementById("btn-pin").classList.remove("active");
+  if(pinHandler){map.off("click",pinHandler);pinHandler=null}
+}
+function togglePinMode(){pinHandler?exitPin():enterPin()}
+function clearLoc(){
+  userLoc=null;distLimit=0;exitPin();
+  if(locMarker){map.removeLayer(locMarker);locMarker=null}
+  if(rangeCircle){map.removeLayer(rangeCircle);rangeCircle=null}
+  document.getElementById("dist-bar").classList.remove("on");
+  document.querySelector("#btn-gps .lbl").textContent="📍 現在地を取得";
+  document.querySelectorAll(".dpill").forEach((b,i)=>b.classList.toggle("on",i===0));
+  map.setView([35.671,139.480],13);
+  filter();
+}
+
+/* ===== 初期化 ===== */
+async function init(){
+  const data=await fetch("data.json").then(r=>r.json());
+  ALL=data;
+  const layers={};
+  Object.keys(CATS).forEach(c=>{layers[c]=L.layerGroup().addTo(map)});
+
+  ALL.forEach((f,idx)=>{
+    if(!f.lat||!f.lng) return;
+    const color=(CATS[f.category]||{color:"#888"}).color;
+    const marker=L.marker([f.lat,f.lng],{icon:makeIcon(color)})
+      .bindPopup(`<b style="font-size:.88rem">${esc(f.name)}</b>`,{maxWidth:180})
+      .on("click",()=>showDetail(idx));
+    const layer=layers[f.category]||L.layerGroup().addTo(map);
+    layer.addLayer(marker);
+    MRK[idx]={marker,f,layer};
+  });
+  filter();
+}
+init();
+</script>
+</body>
+</html>
