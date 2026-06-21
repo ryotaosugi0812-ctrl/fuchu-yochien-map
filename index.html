@@ -121,6 +121,38 @@ header h1{font-size:1.1rem;font-weight:700;flex:1}
 .loc-dot::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:13px;height:13px;background:#2563eb;border:2.5px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(37,99,235,.3);z-index:1}
 .loc-dot::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;background:rgba(37,99,235,.1);border:1.5px solid rgba(37,99,235,.3);border-radius:50%;animation:pulse 2s ease-out infinite}
 @keyframes pulse{0%{transform:translate(-50%,-50%) scale(.3);opacity:1}100%{transform:translate(-50%,-50%) scale(1.8);opacity:0}}
+
+/* ── モバイル対応 ── */
+@media (max-width:640px){
+  header{padding:8px 12px}
+  header h1{font-size:.92rem}
+  #hdr-count{font-size:.68rem}
+
+  /* カテゴリバーを横スクロールに */
+  .cat-bar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 10px;gap:5px}
+  .cat-bar::-webkit-scrollbar{display:none}
+  .search-wrap{flex:0 0 145px}
+  .loc-btns{flex-shrink:0;margin-left:6px}
+  .btn{padding:7px 10px;font-size:.76rem}
+  .chip{padding:5px 9px;font-size:.73rem}
+
+  /* 距離バーも横スクロール */
+  .dist-bar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .dist-bar::-webkit-scrollbar{display:none}
+
+  /* レイアウト：縦積み（地図↑ パネル↓） */
+  .layout{flex-direction:column}
+  #map{flex:0 0 52vh;min-height:180px}
+  .panel{width:100%;flex:1;border-left:none;border-top:2px solid #e2e8f0;min-height:0}
+
+  /* リストアイテムのタップ領域を広く */
+  .item{padding:11px 12px}
+  .item-name{font-size:.9rem}
+  .item-addr{font-size:.76rem}
+
+  /* 詳細ビューの電話番号をタップ可能リンクに */
+  .det-row a{color:inherit;text-decoration:none}
+}
 </style>
 </head>
 <body>
@@ -358,7 +390,7 @@ function detailBlock(f,dm){
     <div class="det-name">${esc(f.name)}</div>
     ${dbadge}
     <div class="det-row"><span>📍</span><span>${esc(f.address||"—")}</span></div>
-    <div class="det-row"><span>📞</span><span>${esc(f.phone||"—")}</span></div>
+    <div class="det-row"><span>📞</span><span>${f.phone?`<a href="tel:${esc(f.phone)}">${esc(f.phone)}</a>`:""||"—"}</span></div>
     ${cap}
     ${f.url?`<a class="det-link2" href="${esc(f.url)}" target="_blank">🏠 府中市公式ページ</a>`:""}`;
 }
